@@ -1,26 +1,33 @@
 //Working awesome getting data every 500mS once in a synchronized manner!!!!!!!!!!!!!!!!!!!!!
-#include <SPI.h>
-#include <mcp2515.h>
-#include "BluetoothSerial.h"
-#include <Wire.h>
+//Not maintaining library files in the repo since you can find in LG PC
+
+#include <SPI.h>//SPI for CAN transceiver IC MCP2515
+#include <mcp2515.h>//Library for MCP2515
+#include "BluetoothSerial.h"//Library for bluetooth
+#include <Wire.h>//
+
+//Libraries for freeRTOS
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
 
-BluetoothSerial ESP_BT; // Class name
+BluetoothSerial ESP_BT; // Class name for bluetooth
 
 struct can_frame canMsg;
-MCP2515 mcp2515(5);
+MCP2515 mcp2515(5);//SPI pin(SS/CS) for ESP WROOM 32
 
+//Battery Extended CAN ID's
 int frame_01 = 0x9F10FA01;
 int frame_11 = 0x9F11FA01;
 int frame_51 = 0x9F15FA01;
 
+//Motor controller's Extended CAN ID's
 int frame_M0 = 0x90261022;
 int frame_M1 = 0x90261023;
 
-SemaphoreHandle_t xMutex;
+SemaphoreHandle_t xMutex;//Defining mutex to protect shared resources
 
+//Defining structure attributes of both battery and motor controller
 struct DataPacket {
   int SoC;
   float batteryCurrent;
@@ -38,21 +45,22 @@ struct DataPacket {
 } sharedData;
 
 void setup() {
-  Serial.begin(19200);
+  Serial.begin(19200);//Baud Rate for Bluetooth serial which works at it's best
   ESP_BT.begin("ESP32_Control");
   SPI.begin();
   
   mcp2515.reset();
-  mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
+  mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);//Setting CAN bitrate to 500kbps since both Battery and Motor controller are at 500kbps baud rate
   mcp2515.setNormalMode();
 
   xMutex = xSemaphoreCreateMutex();
 
-  xTaskCreate(batteryTask, "Battery Task", 4096, NULL, 1, NULL);
-  xTaskCreate(controllerTask, "Controller Task", 4096, NULL, 1, NULL);
-  xTaskCreate(dataProcessingTask, "Data Processing Task", 4096, NULL, 1, NULL);
+  xTaskCreate(batteryTask, "Battery Task", 4096, NULL, 1, NULL);//Battery Task
+  xTaskCreate(controllerTask, "Controller Task", 4096, NULL, 1, NULL);//Controller Task
+  xTaskCreate(dataProcessingTask, "Data Processing Task", 4096, NULL, 1, NULL);//Task that synchronises and sends all the parameters through ble every 500mSec once.
 }
 
+//Through out the tasks you can check that Mutex has been used to protect the shared variable
 void batteryTask(void *pvParameters) {
   while (1) {
     if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
@@ -125,12 +133,13 @@ void controllerTask(void *pvParameters) {
 
 void dataProcessingTask(void *pvParameters) {
   while (1) {
-    vTaskDelay(500 / portTICK_PERIOD_MS); // Delay for 500ms
+    vTaskDelay(500 / portTICK_PERIOD_MS); // Used as a delay element for 500mS
     xSemaphoreTake(xMutex, portMAX_DELAY);
     if (sharedData.batteryUpdated && sharedData.controllerUpdated) {
       sharedData.batteryUpdated = false;
       sharedData.controllerUpdated = false;
-      
+
+      //Once we receive data from both the tasks writing data to Bluetooth every 500mS once
       //Battery SOC
       Serial.print("SoC : "); Serial.println(sharedData.SoC, DEC);
       int SoC = ESP_BT.write(sharedData.SoC); 
