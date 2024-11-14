@@ -14,6 +14,6 @@ Upload test_4.ino in other device(Capturing the battery response, and controller
 Battery, Motor controller, Device 1 and Device 2 all three has to be connected via CAN.
 You can install the apk, pair ESP_Control bluetooth device(As mentioned in edge device firmware, you can change it).
 Connect to the device then you will see the data that will be streaming to Mobile phone.
-Battery_data_portrait_update_button.aia can be imported into MIT app inventor to see the underlying logics, if you want you can do changes for the logics and UI.
+Battery_Motor_portrait_update_button_1 (1).aia can be imported into MIT app inventor to see the underlying logics, if you want you can do changes for the logics and UI.
 
 ---------------------------------------------------------------------------:)))--------------------------------------------------------------------------------
